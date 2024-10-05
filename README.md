@@ -1,5 +1,3 @@
-Banker’s Algorithm
-
 The Banker’s Algorithm is used in operating systems to avoid deadlock by managing resource allocation among processes. It ensures that a system can allocate resources to each process in a way that avoids deadlock, by simulating resource requests and determining if the system will remain in a safe state after granting the request.
 
 This implementation simulates the Banker’s Algorithm by managing resources through the following matrices:
