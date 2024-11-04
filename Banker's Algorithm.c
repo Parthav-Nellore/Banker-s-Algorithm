@@ -1,134 +1,160 @@
 #include <stdio.h>
-#define row 10
-#define column 5
+#include <stdlib.h>
 
-struct matrix{
-    int al[row][column];
-    int m[row][column];
-    int av[1][column];
-    int n[row][column];
+struct ResMatrix {
+    int **alloc;      // Allocated resources
+    int **max;        // Maximum resources
+    int **need;       // Needed resources
+    int *avail;       // Available resources
 };
 
-int safeSequence[row];
-int s=0;
-int k=0;
-int l=0;
+int **allocMatrix(int rows, int cols) {
+    int **mat = (int **)malloc(rows * sizeof(int *));
+    for (int i = 0; i < rows; i++) {
+        mat[i] = (int *)malloc(cols * sizeof(int));
+    }
+    return mat;
+}
 
-void matRead(int r, int c, int m[row][column]){
-    printf("\n");
-    for(int i=0;i<r;i++){
-        for(int j=0;j<c;j++){
-            scanf("%d", &m[i][j]);
+void freeMatrix(int **mat, int rows) {
+    for (int i = 0; i < rows; i++) {
+        free(mat[i]);
+    }
+    free(mat);
+}
+
+void readMatrix(int rows, int cols, int **mat) {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            scanf("%d", &mat[i][j]);
         }
     }
 }
 
-void readInput(int *r, int *c, struct matrix* b){
-    printf("Enter the no.of processes and no.of resources: ");
-    scanf("%d %d", r, c);
-    printf("Enter the Allocated matrix:");
-    matRead(*r, *c, b->al);
-    //printf("Enter the Max matrix:");
-    matRead(*r, *c, b->m);
-    //printf("Enter the available matrix:");
-    matRead(1, *c, b->av);
+void inputRes(int *pCount, int *rCount, struct ResMatrix* rData) {
+    printf("Enter the number of processes and resources: ");
+    scanf("%d %d", pCount, rCount);
+    
+    rData->alloc = allocMatrix(*pCount, *rCount);
+    rData->max = allocMatrix(*pCount, *rCount);
+    rData->need = allocMatrix(*pCount, *rCount);
+    rData->avail = (int *)malloc(*rCount * sizeof(int));
+    
+    printf("Enter the Allocation matrix:\n");
+    readMatrix(*pCount, *rCount, rData->alloc);
+    
+    printf("Enter the Max matrix:\n");
+    readMatrix(*pCount, *rCount, rData->max);
+    
+    printf("Enter the Available matrix:\n");
+    for (int j = 0; j < *rCount; j++) {
+        scanf("%d", &rData->avail[j]);
+    }
 }
 
-void matPrint(int r, int c, struct matrix* b){
+void displayMatrix(int pCount, int rCount, struct ResMatrix* rData) {
     printf("---------------------------------------\n");
     printf("| Px | Allocated |   Max   |   Need   |\n");
     printf("---------------------------------------\n");
-    for(int i=0;i<r;i++){
+    for (int i = 0; i < pCount; i++) {
         printf("| P%d |  ", i);
-        for(int j=0;j<c;j++){
-            printf("%d ", b->al[i][j]);
+        for (int j = 0; j < rCount; j++) {
+            printf("%d ", rData->alloc[i][j]);
         }
         printf(" | ");
-        for(int j=0;j<c;j++){
-            printf("%d ", b->m[i][j]);
+        for (int j = 0; j < rCount; j++) {
+            printf("%d ", rData->max[i][j]);
         }
         printf("| ");
-        for(int j=0;j<c;j++){
-            printf("%d ", b->n[i][j]);
+        for (int j = 0; j < rCount; j++) {
+            printf("%d ", rData->need[i][j]);
         }
         printf("| \n");
     }
     printf("---------------------------------------\n");
     printf("Available: ");
-    for(int j=0;j<c;j++){
-        printf("%d ", b->av[0][j]);
+    for (int j = 0; j < rCount; j++) {
+        printf("%d ", rData->avail[j]);
     }
+    printf("\n");
 }
 
-void calculateNeed(int r, int c, struct matrix* b){
-    for(int i=0;i<r;i++){
-        for(int j=0;j<c;j++) {
-            b->n[i][j]=b->m[i][j]-b->al[i][j];
+void calcNeed(int pCount, int rCount, struct ResMatrix* rData) {
+    for (int i = 0; i < pCount; i++) {
+        for (int j = 0; j < rCount; j++) {
+            rData->need[i][j] = rData->max[i][j] - rData->alloc[i][j];
         }
     }
 }
 
-int safeCheck(int r, int c, int av[row][column], int n[row][column], int al[row][column]){
-    int f=0;
-    for(int j=0;j<c;j++){
-        if(av[0][j]<n[r][j]){
-            f++;
+int isSafe(int pIdx, int rCount, int *avail, int **need, int **alloc) {
+    for (int j = 0; j < rCount; j++) {
+        if (avail[j] < need[pIdx][j]) {
+            return 0;
         }
     }
+    for (int j = 0; j < rCount; j++) {
+        avail[j] += alloc[pIdx][j];
+    }
+    return 1;
+}
 
-    if(f!=0){
-        k=1;
-        return 0;
-    }
-    else{
-        safeSequence[s]=r;
-        s++;
-        l=1;
-        for(int j=0;j<c;j++){
-            av[0][j]+=al[r][j];
+void findSafeSeq(int pCount, int rCount, struct ResMatrix* rData, int* safeSeq, int* seqLen) {
+    int *flags = (int *)calloc(pCount, sizeof(int));
+    int completed = 0;
+
+    while (completed < pCount) {
+        int found = 0;
+        for (int i = 0; i < pCount; i++) {
+            if (flags[i] == 0 && isSafe(i, rCount, rData->avail, rData->need, rData->alloc)) {
+                flags[i] = 1;
+                safeSeq[(*seqLen)++] = i;
+                completed++;
+                found = 1;
+            }
         }
-        return 1;
+        if (!found) {
+            break;  // No safe sequence exists
+        }
+    }
+    free(flags);
+}
+
+void displaySafeSeq(int pCount, int* safeSeq, int seqLen) {
+    if (seqLen == pCount) {
+        printf("\nSafe sequence: ");
+        for (int i = 0; i < seqLen; i++) {
+            printf("P%d ", safeSeq[i]);
+        }
+        printf("\nSystem is in a safe state.\n");
+    } else {
+        printf("\nSystem is not in a safe state.\n");
     }
 }
 
-void checkSequence(int sr, int c, int sF[], struct matrix* b){
-    for(int i=0;i<sr;i++){
-        if(sF[i]==0) {
-            int r = i;
-            sF[i]=safeCheck(r, c, b->av, b->n, b->al);
-        }
-    }
-    if(k!=0 && l!=0){
-        k=0;
-        l=0;
-        checkSequence(sr, c, sF, b);
-    }
+void freeRes(int pCount, struct ResMatrix* rData) {
+    freeMatrix(rData->alloc, pCount);
+    freeMatrix(rData->max, pCount);
+    freeMatrix(rData->need, pCount);
+    free(rData->avail);
 }
 
-void printSafe(int r){
-    printf("\nSafe sequence: ");
-    for(int i=0;i<s;i++){
-        printf("%d ", safeSequence[i]);
-    }
-    if(s==r){
+int main() {
+    struct ResMatrix rData;
+    int pCount = 0, rCount = 0;
+    
+    inputRes(&pCount, &rCount, &rData);
+    calcNeed(pCount, rCount, &rData);
+    
+    int *safeSeq = (int *)malloc(pCount * sizeof(int));
+    int seqLen = 0;
+    
+    findSafeSeq(pCount, rCount, &rData, safeSeq, &seqLen);
+    displayMatrix(pCount, rCount, &rData);
+    displaySafeSeq(pCount, safeSeq, seqLen);
+    
+    free(safeSeq);
+    freeRes(pCount, &rData);
 
-        printf("\nSystem is in safe state.");
-    }
-    else{
-        printf("\nSystem is not in safe state.");
-    }
-}
-
-int main(){
-    struct matrix b0;
-    int r=0,c=0;
-    readInput(&r, &c, &b0);
-    int safeFlags[r];
-    for(int i=0;i<r;i++){
-        safeFlags[i]=0;
-    }
-    calculateNeed(r, c, &b0);
-    checkSequence(r, c, safeFlags, &b0);
-    matPrint(r, c, &b0);
-    printSafe(r);
+    return 0;
 }
